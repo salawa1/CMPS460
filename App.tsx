@@ -1,77 +1,94 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
+  Button,
   StatusBar,
   Platform,
 } from 'react-native';
 
 function App(): React.JSX.Element {
+  // State keeps track of the name, guest count, and registration status.
+  const [name, setName] = useState('');
+  const [guests, setGuests] = useState(0);
+  const [registered, setRegistered] = useState(false);
+
+  const addGuest = () => {
+    setGuests(guests + 1);
+  };
+
+  // Prevent the guest count from going below zero, like the lab inventory.
+  const removeGuest = () => {
+    if (guests > 0) {
+      setGuests(guests - 1);
+    }
+  };
+
+  const register = () => {
+    setRegistered(true);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
+        <Text style={styles.header}>Event Registration</Text>
 
-        <Text style={styles.header}>My Profile</Text>
+        <EventInfo name="Mobile Development Workshop" />
 
-        <View style={styles.card}>
-          <Text style={styles.name}>Sam Alawadhi</Text>
-          <Text style={styles.subtext}>
-            Residence Life Programming Coordinator | Office of Residence Life
-          </Text>
-          <Text style={styles.subtext}>
-            Financial Coordinator | CAB
-          </Text>
-          <Text style={styles.subtext}>
-            Tutor | Tutoring & Writing Center
-          </Text>
-        </View>
+        {/* Show the form before registration and a summary afterward. */}
+        {registered ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Registration Complete!</Text>
+            <Text style={styles.item}>Name: {name}</Text>
+            <Text style={styles.item}>Event: Mobile Development Workshop</Text>
+            <Text style={styles.item}>Guests: {guests}</Text>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Name</Text>
 
-        <Education />
+            {/* TextInput updates the name state when the user types. */}
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your name"
+              value={name}
+              onChangeText={setName}
+            />
 
-        <TechnicalSkills />
+            <Text style={styles.sectionTitle}>Guests: {guests}</Text>
 
-        <CareerGoals />
+            <View style={styles.button}>
+              <Button title="- Guest" onPress={removeGuest} />
+            </View>
 
+            <View style={styles.button}>
+              <Button title="+ Guest" onPress={addGuest} />
+            </View>
+
+            <View style={styles.button}>
+              <Button
+                title="Register"
+                onPress={register}
+                disabled={name.trim() === ''}
+              />
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Education() {
+// This reusable component receives the event name through props.
+function EventInfo({ name }: { name: string }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Education</Text>
-      <Text style={styles.item}>Point Park University</Text>
-      <Text style={styles.item}>
-        B.S. Accounting & Applied Computer Science
-      </Text>
-      <Text style={styles.item}>Expected Graduation: May 2027</Text>
-    </View>
-  );
-}
-
-function TechnicalSkills() {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Technical Skills</Text>
-      <Text style={styles.item}>HTML & CSS</Text>
-      <Text style={styles.item}>JavaScript</Text>
-      <Text style={styles.item}>Accounting Software & Excel</Text>
-    </View>
-  );
-}
-
-function CareerGoals() {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Career Goals</Text>
-      <Text style={styles.item}>
-        Pursue CPA licensure in Pennsylvania and work in IT audit,
-        combining my accounting and software development background.
-      </Text>
+      <Text style={styles.sectionTitle}>Event</Text>
+      <Text style={styles.item}>{name}</Text>
     </View>
   );
 }
@@ -96,22 +113,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#213c60',
     marginBottom: 16,
-    // optional: subtle shadow for depth
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2, // shadow on Android
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#4b8e60',
-  },
-  subtext: {
-    fontSize: 14,
-    color: '#64748b',
   },
   sectionTitle: {
     fontSize: 18,
@@ -123,6 +124,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
     color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#213c60',
+    padding: 10,
+    marginBottom: 16,
+    fontSize: 16,
+    color: '#333',
+  },
+  button: {
+    marginBottom: 10,
   },
 });
 
