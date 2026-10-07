@@ -6,7 +6,7 @@ export default function HomeScreen({ navigation }: any) {
     <View style={styles.container}>
       <Text style={styles.title}>My Movie Collection</Text>
       <Text style={styles.text}>
-        Browse 5 movies and choose one to learn more about it.
+        Add movies to your collection and choose one to learn more about it.
       </Text>
       <View style={styles.button}>
         <Button
