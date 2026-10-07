@@ -7,12 +7,13 @@ export default function AboutScreen() {
       <Text style={styles.title}>About My Movie Collection</Text>
       <Text style={styles.text}>Name: Sam Alawadhi</Text>
       <Text style={styles.text}>
-        Application Description: This app displays five different movies with a short
-        description of each movie.
+        Application Description: This app allows users to add, browse, and
+        delete movies in a personal collection. Each movie includes a title,
+        release year, and description.
       </Text>
       <Text style={styles.text}>
-        Purpose: To help users view a small movie collection and learn more about
-        each one.
+        Purpose: To help users organize a movie collection and save it
+        between app sessions.
       </Text>
     </View>
   );

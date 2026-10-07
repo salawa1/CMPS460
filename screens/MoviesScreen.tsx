@@ -1,77 +1,178 @@
-import React from 'react';
-import { ScrollView, View, Text, Button, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  FlatList,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface Movie {
+  id: string;
+  movieTitle: string;
+  year: string;
+  description: string;
+}
 
 export default function MoviesScreen({ navigation }: any) {
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [movieTitle, setMovieTitle] = useState('');
+  const [year, setYear] = useState('');
+  const [description, setDescription] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadMovies = async () => {
+      try {
+        const savedMovies = await AsyncStorage.getItem('movies');
+
+        if (savedMovies !== null) {
+          setMovies(JSON.parse(savedMovies));
+        }
+
+        setLoaded(true);
+      } catch (error) {
+        console.log('Error loading movies:', error);
+      }
+    };
+
+    loadMovies();
+  }, []);
+
+  useEffect(() => {
+    const saveMovies = async () => {
+      try {
+        await AsyncStorage.setItem(
+          'movies',
+          JSON.stringify(movies),
+        );
+      } catch (error) {
+        console.log('Error saving movies:', error);
+      }
+    };
+
+    if (loaded) {
+      saveMovies();
+    }
+  }, [movies, loaded]);
+
+  const addMovie = () => {
+    if (
+      movieTitle.trim() === '' ||
+      year.trim() === '' ||
+      description.trim() === ''
+    ) {
+      Alert.alert('Please fill in all fields.');
+      return;
+    }
+
+    const newMovie: Movie = {
+      id: Date.now().toString(),
+      movieTitle: movieTitle.trim(),
+      year: year.trim(),
+      description: description.trim(),
+    };
+
+    setMovies([...movies, newMovie]);
+
+    setMovieTitle('');
+    setYear('');
+    setDescription('');
+  };
+
+  const deleteMovie = (id: string) => {
+    setMovies(movies.filter(movie => movie.id !== id));
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Movies</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>My Movie Collection</Text>
 
-      <View style={styles.movie}>
-        <Text style={styles.text}>Everything Everywhere All at Once - 2024</Text>
-        <Button
-          title="View Details"
-          onPress={() => navigation.navigate('Details', {
-            movieTitle: "Everything Everywhere All at Once",
-            year: 2024,
-            description: "An exhausted Chinese-American immigrant mother who must save the multiverse while trying to finish her taxes and fix her family.",
-          })}
-        />
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Movie title"
+        value={movieTitle}
+        onChangeText={setMovieTitle}
+      />
 
-      <View style={styles.movie}>
-        <Text style={styles.text}>Parasite - 2019</Text>
-        <Button
-          title="View Details"
-          onPress={() => navigation.navigate('Details', {
-            movieTitle: "Parasite",
-            year: 2019,
-            description: "Greed and class discrimination threaten the newly formed symbiotic relationship between the wealthy Park family and the destitute Kim clan.",
-          })}
-        />
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Release year"
+        value={year}
+        onChangeText={setYear}
+      />
 
-      <View style={styles.movie}>
-        <Text style={styles.text}>Black Swan - 2010</Text>
-        <Button
-          title="View Details"
-          onPress={() => navigation.navigate('Details', {
-            movieTitle: "Black Swan",
-            year: 2010,
-            description: "A perfectionist ballerina who descends into madness while fighting for the lead role in Swan Lake.",
-          })}
-        />
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+      />
 
-      <View style={styles.movie}>
-        <Text style={styles.text}>Perks of Being a Wallflower - 2012</Text>
-        <Button
-          title="View Details"
-          onPress={() => navigation.navigate('Details', {
-            movieTitle: "Perks of Being a Wallflower",
-            year: 2012,
-            description: "A introverted high school freshman named Charlie navigates trauma, mental health, and the turbulent waters of adolescence.",
-          })}
-        />
-      </View>
+      <Button
+        title="Add Movie"
+        onPress={addMovie}
+        disabled={!loaded}
+      />
 
-      <View style={styles.movie}>
-        <Text style={styles.text}>Interstellar - 2014</Text>
-        <Button
-          title="View Details"
-          onPress={() => navigation.navigate('Details', {
-            movieTitle: "Interstellar",
-            year: 2014,
-            description: "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
-          })}
-        />
-      </View>
-    </ScrollView>
+      <FlatList
+        data={movies}
+        keyExtractor={item => item.id}
+        ListEmptyComponent={
+          <Text style={styles.text}>
+            No movies have been added. Add your first movie!
+          </Text>
+        }
+        renderItem={({ item }) => (
+          <View style={styles.movie}>
+            <Text style={styles.text}>{item.movieTitle}</Text>
+            <Text style={styles.text}>Year: {item.year}</Text>
+
+            <Button
+              title="View Details"
+              onPress={() =>
+                navigation.navigate('Details', {
+                  movieTitle: item.movieTitle,
+                  year: item.year,
+                  description: item.description,
+                })
+              }
+            />
+
+            <Button
+              title="Delete"
+              onPress={() => deleteMovie(item.id)}
+            />
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  title: { fontSize: 28, marginBottom: 20 },
-  movie: { marginBottom: 25 },
-  text: { fontSize: 18, marginBottom: 10 },
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 15,
+  },
+  input: {
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 10,
+  },
+  movie: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  text: {
+    fontSize: 18,
+    marginVertical: 10,
+  },
 });
