@@ -1,178 +1,207 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, Button, FlatList,
-  StyleSheet, Alert
+  ActivityIndicator, Alert, Button, FlatList,
+  StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
-type Expense = {
+type Task = {
   id: string;
   title: string;
-  amount: number;
-  category: string;
+  completed: boolean;
 };
 
-const STORAGE_KEY = 'module7_expenses';
-const categories = ['Food', 'Transport', 'School'];
+type RootStackParamList = {
+  Home: undefined;
+  Main: undefined;
+  TaskDetails: { taskId: string };
+};
 
-export default function App() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+type TabParamList = {
+  Tasks: undefined;
+  Settings: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+const STORAGE_KEY = 'organizer_tasks';
+
+// Reusable form component.
+type FormFieldProps = {
+  value: string;
+  onChange: (text: string) => void;
+};
+
+function FormField({ value, onChange }: FormFieldProps) {
+  return (
+    <TextInput
+      style={styles.input}
+      placeholder="Task title"
+      accessibilityLabel="Task title"
+      value={value}
+      onChangeText={onChange}
+    />
+  );
+}
+
+type HomeProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+function HomeScreen({ navigation }: HomeProps) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.heading}>Personal Organizer</Text>
+      <Button
+        title="View Tasks"
+        accessibilityLabel="Open tasks"
+        onPress={() => navigation.navigate('Main')}
+      />
+    </View>
+  );
+}
+
+type TasksProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Main'>;
+  tasks: Task[];
+  updateTasks: (tasks: Task[]) => void;
+  saving: boolean;
+  message: string;
+};
+
+function TasksScreen({
+  navigation, tasks, updateTasks, saving, message,
+}: TasksProps) {
   const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('Food');
-  const [filter, setFilter] = useState('All');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [editingId, setEditingId] = useState('');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const loadExpenses = async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved !== null) setExpenses(JSON.parse(saved));
-        setLoaded(true);
-      } catch (error) {
-        Alert.alert('Error', 'Unable to load expenses. Reopen the app.');
-      }
-    };
-    loadExpenses();
-  }, []);
+  const clearForm = () => {
+    setTitle('');
+    setEditingId('');
+    setError('');
+  };
 
-  useEffect(() => {
-    if (!loaded) return;
-
-    const saveExpenses = async () => {
-      try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY, JSON.stringify(expenses)
-        );
-      } catch (error) {
-        Alert.alert('Error', 'Unable to save expenses.');
-      }
-    };
-    saveExpenses();
-  }, [expenses, loaded]);
-
-  const saveExpense = () => {
-    const expenseAmount = Number(amount);
-
-    if (
-      title.trim() === '' ||
-      !Number.isFinite(expenseAmount) ||
-      expenseAmount <= 0
-    ) {
-      Alert.alert('Enter a title and an amount greater than zero.');
+  const saveTask = () => {
+    if (title.trim() === '') {
+      setError('Please enter a task title.');
       return;
     }
 
-    if (editingId !== null) {
-      setExpenses(current => current.map(expense =>
-        expense.id === editingId
-          ? { ...expense, title: title.trim(), amount: expenseAmount, category }
-          : expense
+    if (editingId !== '') {
+      updateTasks(tasks.map(task =>
+        task.id === editingId ? { ...task, title: title.trim() } : task
       ));
     } else {
-      const newExpense: Expense = {
+      updateTasks([...tasks, {
         id: `${Date.now()}-${Math.random()}`,
         title: title.trim(),
-        amount: expenseAmount,
-        category
-      };
-      setExpenses(current => [...current, newExpense]);
+        completed: false,
+      }]);
     }
 
-    setTitle('');
-    setAmount('');
-    setEditingId(null);
+    clearForm();
   };
 
-  const editExpense = (expense: Expense) => {
-    setTitle(expense.title);
-    setAmount(expense.amount.toString());
-    setCategory(expense.category);
-    setEditingId(expense.id);
+  const editTask = (task: Task) => {
+    setTitle(task.title);
+    setEditingId(task.id);
+    setError('');
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(current => current.filter(expense => expense.id !== id));
-
-    if (editingId === id) {
-      setTitle('');
-      setAmount('');
-      setEditingId(null);
-    }
+  const toggleTask = (id: string) => {
+    updateTasks(tasks.map(task =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
   };
 
-  const filteredExpenses = expenses.filter(expense =>
-    filter === 'All' || expense.category === filter
-  );
+  const deleteTask = (id: string) => {
+    Alert.alert('Delete Task', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          updateTasks(tasks.filter(task => task.id !== id));
+          if (editingId === id) clearForm();
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>My Expense Tracker</Text>
+      <Text style={styles.heading}>My Tasks</Text>
+      <FormField value={title} onChange={setTitle} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Expense title"
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-      />
-
-      <Text>Category: {category}</Text>
-
-      <View style={styles.buttons}>
-        {categories.map(value => (
-          <Button
-            key={value}
-            title={value}
-            onPress={() => setCategory(value)}
-          />
-        ))}
-      </View>
+      {error !== '' && (
+        <Text style={styles.error} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
 
       <Button
-        title={editingId !== null ? 'Save Changes' : 'Add Expense'}
-        onPress={saveExpense}
-        disabled={!loaded}
+        title={editingId ? 'Save Changes' : 'Add Task'}
+        accessibilityLabel={editingId ? 'Save changes' : 'Add task'}
+        onPress={saveTask}
+        disabled={saving}
       />
 
-      <Text style={styles.label}>Filter: {filter}</Text>
+      {editingId !== '' && (
+        <Button
+          title="Cancel Edit"
+          accessibilityLabel="Cancel editing"
+          onPress={clearForm}
+        />
+      )}
 
-      <View style={styles.buttons}>
-        {['All', ...categories].map(value => (
-          <Button
-            key={value}
-            title={value}
-            onPress={() => setFilter(value)}
-          />
-        ))}
-      </View>
+      <Text style={styles.message} accessibilityLiveRegion="polite">
+        {message}
+      </Text>
 
       <FlatList
-        data={filteredExpenses}
+        data={tasks}
         keyExtractor={item => item.id}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<Text>No expenses to display.</Text>}
+        ListEmptyComponent={<Text>No tasks yet.</Text>}
         renderItem={({ item }) => (
-          <View style={styles.expenseRow}>
-            <Text style={styles.expenseText}>
-              {item.title} - ${item.amount.toFixed(2)}
-            </Text>
-            <Text>{item.category}</Text>
+          <View style={styles.card}>
+            <Text style={styles.taskTitle}>{item.title}</Text>
+            <Text>{item.completed ? 'Completed' : 'Not completed'}</Text>
 
             <View style={styles.buttons}>
-              <Button title="Edit" onPress={() => editExpense(item)} />
+              <Button
+                title="Details"
+                accessibilityLabel={`View ${item.title}`}
+                onPress={() =>
+                  navigation.navigate('TaskDetails', { taskId: item.id })
+                }
+              />
+              <Button
+                title="Edit"
+                accessibilityLabel={`Edit ${item.title}`}
+                onPress={() => editTask(item)}
+                disabled={saving}
+              />
+              <Button
+                title={item.completed ? 'Undo' : 'Complete'}
+                accessibilityLabel={
+                  `${item.completed ? 'Undo completion of' : 'Complete'} ${item.title}`
+                }
+                onPress={() => toggleTask(item.id)}
+                disabled={saving}
+              />
               <Button
                 title="Delete"
                 color="red"
-                onPress={() => deleteExpense(item.id)}
+                accessibilityLabel={`Delete ${item.title}`}
+                onPress={() => deleteTask(item.id)}
+                disabled={saving}
               />
             </View>
           </View>
@@ -182,24 +211,177 @@ export default function App() {
   );
 }
 
+type DetailsProps =
+  NativeStackScreenProps<RootStackParamList, 'TaskDetails'> & {
+    tasks: Task[];
+  };
+
+function TaskDetailsScreen({ route, navigation, tasks }: DetailsProps) {
+  const task = tasks.find(item => item.id === route.params.taskId);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.heading}>{task?.title || 'Task not found'}</Text>
+      {task && (
+        <>
+          <Text>Task ID: {task.id}</Text>
+          <Text>{task.completed ? 'Completed' : 'Not completed'}</Text>
+        </>
+      )}
+      <Button
+        title="Back to Tasks"
+        accessibilityLabel="Back to tasks"
+        onPress={() => navigation.goBack()}
+      />
+    </View>
+  );
+}
+
+function SettingsScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.heading}>Settings</Text>
+      <Text>Tasks are saved automatically on this device.</Text>
+    </View>
+  );
+}
+
+export default function App() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (saved !== null) setTasks(JSON.parse(saved));
+        setLoaded(true);
+      } catch {
+        setLoadError('Unable to load tasks. Please reopen the app.');
+      }
+    };
+    loadTasks();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+
+    const saveTasks = async () => {
+      setSaving(true);
+      setMessage('Saving...');
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        setMessage('Tasks saved.');
+      } catch {
+        setMessage('Save failed. Changes are not saved.');
+      } finally {
+        setSaving(false);
+      }
+    };
+    saveTasks();
+  }, [tasks, loaded]);
+
+  if (loadError) {
+    return <View style={styles.loading}><Text>{loadError}</Text></View>;
+  }
+
+  if (!loaded) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator accessibilityLabel="Loading tasks" />
+        <Text>Loading tasks...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Main" options={{ title: 'Personal Organizer' }}>
+          {({ navigation }) => (
+            <Tab.Navigator screenOptions={{
+              headerShown: false,
+              tabBarIcon: () => null,
+              tabBarIconStyle: { display: 'none' },
+              tabBarLabelStyle: { fontSize: 16 },
+            }}>
+              <Tab.Screen
+                name="Tasks"
+                options={{ tabBarAccessibilityLabel: 'Tasks tab' }}
+              >
+                {() => (
+                  <TasksScreen
+                    navigation={navigation}
+                    tasks={tasks}
+                    updateTasks={setTasks}
+                    saving={saving}
+                    message={message}
+                  />
+                )}
+              </Tab.Screen>
+              <Tab.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ tabBarAccessibilityLabel: 'Settings tab' }}
+              />
+            </Tab.Navigator>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="TaskDetails" options={{ title: 'Task Details' }}>
+          {props => <TaskDetailsScreen {...props} tasks={tasks} />}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1, padding: 25, paddingTop: 70,
-    backgroundColor: '#f4f4f4'
+    flex: 1,
+    padding: 24,
+    backgroundColor: 'white',
   },
-  heading: { fontSize: 26, fontWeight: 'bold', marginBottom: 20 },
+  heading: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
   input: {
-    backgroundColor: 'white', padding: 12, borderWidth: 1,
-    borderColor: '#ccc', marginBottom: 12, borderRadius: 8
+    borderWidth: 1,
+    borderColor: '#999',
+    padding: 12,
+    marginBottom: 12,
+  },
+  error: {
+    color: 'red',
+    marginBottom: 12,
+  },
+  message: {
+    marginVertical: 12,
+  },
+  card: {
+    backgroundColor: '#eee',
+    padding: 12,
+    marginBottom: 12,
+  },
+  taskTitle: {
+    fontSize: 18,
+    marginBottom: 8,
   },
   buttons: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    gap: 6, marginVertical: 10
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
   },
-  label: { marginTop: 15 },
-  expenseRow: {
-    marginVertical: 8, padding: 10,
-    backgroundColor: 'white', borderRadius: 8
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  expenseText: { fontSize: 16 }
 });
