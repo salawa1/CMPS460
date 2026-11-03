@@ -1,180 +1,102 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Button, FlatList,
-  StyleSheet, Alert
+  Button,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type Expense = {
+type Task = {
   id: string;
   title: string;
-  amount: number;
-  category: string;
 };
 
-const STORAGE_KEY = 'module7_expenses';
-const categories = ['Food', 'Transport', 'School'];
+type RootStackParamList = {
+  Home: undefined;
+  Tasks: undefined;
+  TaskDetails: { taskId: string };
+};
 
-export default function App() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('Food');
-  const [filter, setFilter] = useState('All');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-  useEffect(() => {
-    const loadExpenses = async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved !== null) setExpenses(JSON.parse(saved));
-        setLoaded(true);
-      } catch (error) {
-        Alert.alert('Error', 'Unable to load expenses. Reopen the app.');
-      }
-    };
-    loadExpenses();
-  }, []);
+type HomeProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-  useEffect(() => {
-    if (!loaded) return;
+function HomeScreen({ navigation }: HomeProps) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.heading}>Personal Organizer</Text>
+      <Button
+        title="View Tasks"
+        onPress={() => navigation.navigate('Tasks')}
+      />
+    </SafeAreaView>
+  );
+}
 
-    const saveExpenses = async () => {
-      try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY, JSON.stringify(expenses)
-        );
-      } catch (error) {
-        Alert.alert('Error', 'Unable to save expenses.');
-      }
-    };
-    saveExpenses();
-  }, [expenses, loaded]);
+type TasksProps = NativeStackScreenProps<RootStackParamList, 'Tasks'> & {
+  tasks: Task[];
+  addTask: (title: string) => void;
+};
 
-  const saveExpense = () => {
-    const expenseAmount = Number(amount);
+function TasksScreen({ navigation, tasks, addTask }: TasksProps) {
+  const [taskInput, setTaskInput] = useState('');
+  const [error, setError] = useState('');
 
-    if (
-      title.trim() === '' ||
-      !Number.isFinite(expenseAmount) ||
-      expenseAmount <= 0
-    ) {
-      Alert.alert('Enter a title and an amount greater than zero.');
+  const handleAddTask = () => {
+    const title = taskInput.trim();
+
+    if (title === '') {
+      setError('Please enter a task title.');
       return;
     }
 
-    if (editingId !== null) {
-      setExpenses(current => current.map(expense =>
-        expense.id === editingId
-          ? { ...expense, title: title.trim(), amount: expenseAmount, category }
-          : expense
-      ));
-    } else {
-      const newExpense: Expense = {
-        id: `${Date.now()}-${Math.random()}`,
-        title: title.trim(),
-        amount: expenseAmount,
-        category
-      };
-      setExpenses(current => [...current, newExpense]);
-    }
-
-    setTitle('');
-    setAmount('');
-    setEditingId(null);
+    addTask(title);
+    setTaskInput('');
+    setError('');
   };
-
-  const editExpense = (expense: Expense) => {
-    setTitle(expense.title);
-    setAmount(expense.amount.toString());
-    setCategory(expense.category);
-    setEditingId(expense.id);
-  };
-
-  const deleteExpense = (id: string) => {
-    setExpenses(current => current.filter(expense => expense.id !== id));
-
-    if (editingId === id) {
-      setTitle('');
-      setAmount('');
-      setEditingId(null);
-    }
-  };
-
-  const filteredExpenses = expenses.filter(expense =>
-    filter === 'All' || expense.category === filter
-  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>My Expense Tracker</Text>
+      <Text style={styles.heading}>My Tasks</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Expense title"
-        value={title}
-        onChangeText={setTitle}
+        placeholder="Enter a task"
+        value={taskInput}
+        onChangeText={setTaskInput}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-      />
+      {error !== '' && (
+        <Text style={styles.error}>{error}</Text>
+      )}
 
-      <Text>Category: {category}</Text>
-
-      <View style={styles.buttons}>
-        {categories.map(value => (
-          <Button
-            key={value}
-            title={value}
-            onPress={() => setCategory(value)}
-          />
-        ))}
-      </View>
-
-      <Button
-        title={editingId !== null ? 'Save Changes' : 'Add Expense'}
-        onPress={saveExpense}
-        disabled={!loaded}
-      />
-
-      <Text style={styles.label}>Filter: {filter}</Text>
-
-      <View style={styles.buttons}>
-        {['All', ...categories].map(value => (
-          <Button
-            key={value}
-            title={value}
-            onPress={() => setFilter(value)}
-          />
-        ))}
-      </View>
+      <Button title="Add Task" onPress={handleAddTask} />
 
       <FlatList
-        data={filteredExpenses}
+        style={styles.list}
+        data={tasks}
         keyExtractor={item => item.id}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<Text>No expenses to display.</Text>}
+        ListEmptyComponent={
+          <Text>No tasks yet. Add your first task!</Text>
+        }
         renderItem={({ item }) => (
-          <View style={styles.expenseRow}>
-            <Text style={styles.expenseText}>
-              {item.title} - ${item.amount.toFixed(2)}
-            </Text>
-            <Text>{item.category}</Text>
-
-            <View style={styles.buttons}>
-              <Button title="Edit" onPress={() => editExpense(item)} />
-              <Button
-                title="Delete"
-                color="red"
-                onPress={() => deleteExpense(item.id)}
-              />
-            </View>
+          <View style={styles.taskRow}>
+            <Text style={styles.taskTitle}>{item.title}</Text>
+            <Button
+              title="View Details"
+              onPress={() =>
+                navigation.navigate('TaskDetails', {
+                  taskId: item.id,
+                })
+              }
+            />
           </View>
         )}
       />
@@ -182,24 +104,108 @@ export default function App() {
   );
 }
 
+type DetailsProps =
+  NativeStackScreenProps<RootStackParamList, 'TaskDetails'> & {
+    tasks: Task[];
+  };
+
+function TaskDetailsScreen({
+  route,
+  navigation,
+  tasks,
+}: DetailsProps) {
+  const task = tasks.find(item => item.id === route.params.taskId);
+
+  return (
+    <View style={styles.container}>
+      {task ? (
+        <>
+          <Text style={styles.heading}>{task.title}</Text>
+          <Text style={styles.taskTitle}>Task ID: {task.id}</Text>
+        </>
+      ) : (
+        <Text style={styles.taskTitle}>Task not found.</Text>
+      )}
+
+      <Button
+        title="Back to Tasks"
+        onPress={() => navigation.goBack()}
+      />
+    </View>
+  );
+}
+
+export default function App() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  const addTask = (title: string) => {
+    const newTask: Task = {
+      id: `${Date.now()}-${Math.random()}`,
+      title,
+    };
+
+    setTasks(current => [...current, newTask]);
+  };
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+
+        <Stack.Screen name="Tasks">
+          {props => (
+            <TasksScreen
+              {...props}
+              tasks={tasks}
+              addTask={addTask}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="TaskDetails"
+          options={{ title: 'Task Details' }}
+        >
+          {props => (
+            <TaskDetailsScreen {...props} tasks={tasks} />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1, padding: 25, paddingTop: 70,
-    backgroundColor: '#f4f4f4'
+    flex: 1,
+    padding: 24,
+    backgroundColor: '#fff',
   },
-  heading: { fontSize: 26, fontWeight: 'bold', marginBottom: 20 },
+  heading: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
   input: {
-    backgroundColor: 'white', padding: 12, borderWidth: 1,
-    borderColor: '#ccc', marginBottom: 12, borderRadius: 8
+    borderWidth: 1,
+    borderColor: '#999',
+    padding: 12,
+    marginBottom: 12,
   },
-  buttons: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    gap: 6, marginVertical: 10
+  error: {
+    color: 'red',
+    marginBottom: 12,
   },
-  label: { marginTop: 15 },
-  expenseRow: {
-    marginVertical: 8, padding: 10,
-    backgroundColor: 'white', borderRadius: 8
+  list: {
+    flex: 1,
+    marginTop: 20,
   },
-  expenseText: { fontSize: 16 }
+  taskRow: {
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: '#eee',
+  },
+  taskTitle: {
+    fontSize: 18,
+    marginBottom: 10,
+  },
 });
