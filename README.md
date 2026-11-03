@@ -1,27 +1,31 @@
-# Module 7 Homework Assignment - Personal Expense Tracker
+# Module 8 Assignment - Personal Organizer
 
 **Sam Alawadhi**
 
 ## App Description
 
-This React Native application is used for recording personal spending. Each expense includes a description, amount, and category. Expenses are saved on the device between sessions.
+This is a React Native application created for managing tasks.
+Users can add, view, edit, complete, and delete tasks. Tasks remain
+saved after closing and reopening the app, and each task is associated with a unique Task ID.
 
 ## Implemented Features
 
-- Add expenses through a form.
-- Display expenses using FlatList.
-- Edit the description, amount, and category.
-- Delete expenses.
-- Support 3 categories: Food, Transport, and School.
-- Filter by category or display all expenses.
-- Error message for blank descriptions and invalid amounts.
-- Save and reload expenses using AsyncStorage.
+- Home, Tasks, Task Details, and Settings screens.
+- Stack navigation and bottom tabs for Tasks and Settings.
+- A form for adding and editing task titles.
+- Validation that rejects blank or whitespace-only titles.
+- Task completion and the ability to mark tasks incomplete.
+- Confirmation before deleting a task.
+- Persistent storage with AsyncStorage.
+- Loading, save success, save failure, and empty-state feedback.
+- A reusable FormField component.
+- Accessibility labels on interactive controls.
+- TypeScript types for tasks and navigation parameters.
 
 ## Installation and Run Instructions
 
 1. Install Node.js, VS Code, and Android Studio.
-2. Create and start an Android emulator using Android Studio’s
-   Device Manager.
+2. Create and start an Android emulator through Device Manager.
 3. Open the project folder in VS Code and run:
 
    ```bash
@@ -31,26 +35,34 @@ This React Native application is used for recording personal spending. Each expe
 
 ## How AsyncStorage Is Used
 
-AsyncStorage saves the expenses locally using `personalExpenses`.
+Tasks are stored locally under `organizer_tasks`.
 
-JSON.stringify() converts the expenses array into a string before
-saving. When the app opens, useEffect retrieves the saved information.
-JSON.parse() converts it back into an array and updates state.
+When the app opens, useEffect retrieves the saved information.
+JSON.parse() converts the stored string into a task array.
+Another useEffect saves the array with JSON.stringify() whenever
+tasks change.
 
-A second useEffect saves changes when expenses are added, edited,
-or deleted. This allows expenses and changes to remain available after the
-app closes and reopens.
+## Navigation and Reusable Component
+
+The stack contains Home, the main tab area, and Task Details.
+The tab area contains Tasks and Settings.
+
+The FormField component is reused for every task in the list. It displays the task
+and provides Details, Edit, Complete/Undo, and Delete buttons.
 
 ## Screenshots
 
-### Main Page
-<img src="screenshots/main.png">
+### Home Page
+<img src="screenshots/home.png" height=500px> 
 
-### Filters
-<img src="screenshots/filter.png">
+### Tasks
+<img src="screenshots/tasks.png" height=500px>
+
+### Details
+<img src="screenshots/details.png" height=500px>
 
 ### Editing
-<img src="screenshots/edit.png">
+<img src="screenshots/editing.png" height=500px>
 
-### Error Message
-<img src="screenshots/error.png">
+### Settings
+<img src="screenshots/settings.png" height=500px>
