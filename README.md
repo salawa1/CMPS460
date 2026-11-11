@@ -1,68 +1,49 @@
-# Module 8 Assignment - Personal Organizer
+# Module 9 Assignment NFL Teams & Players
 
-**Sam Alawadhi**
+**Sam Alawadhi** 
 
 ## App Description
 
-This is a React Native application created for managing tasks.
-Users can add, view, edit, complete, and delete tasks. Tasks remain
-saved after closing and reopening the app, and each task is associated with a unique Task ID.
-
-## Implemented Features
-
-- Home, Tasks, Task Details, and Settings screens.
-- Stack navigation and bottom tabs for Tasks and Settings.
-- A form for adding and editing task titles.
-- Validation that rejects blank or whitespace-only titles.
-- Task completion and the ability to mark tasks incomplete.
-- Confirmation before deleting a task.
-- Persistent storage with AsyncStorage.
-- Loading, save success, save failure, and empty-state feedback.
-- A reusable FormField component.
-- Accessibility labels on interactive controls.
-- TypeScript types for tasks and navigation parameters.
+A React Native app for browsing 10 NFL teams, viewing players, searching by team name or city, and saving favorite teams.
 
 ## Installation and Run Instructions
 
-1. Install Node.js, VS Code, and Android Studio.
-2. Create and start an Android emulator through Device Manager.
-3. Open the project folder in VS Code and run:
+1. Install Node.js and start an Android emulator in Android Studio.
+2. Open the project folder in VS Code and run:
 
    ```bash
    npm install
-   npx run android
+   npm run android
    ```
 
-## How AsyncStorage Is Used
+## Data Source
 
-Tasks are stored locally under `organizer_tasks`.
-
-When the app opens, useEffect retrieves the saved information.
-JSON.parse() converts the stored string into a task array.
-Another useEffect saves the array with JSON.stringify() whenever
-tasks change.
-
-## Navigation and Reusable Component
-
-The stack contains Home, the main tab area, and Task Details.
-The tab area contains Tasks and Settings.
-
-The FormField component is reused for every task in the list. It displays the task
-and provides Details, Edit, Complete/Undo, and Delete buttons.
+The app uses a local JSON file located in `data/teams.json`. It includes real NFL team names, cities, and conferences. Each team has two players from the 2024 season with a name, position, and jersey number.
 
 ## Screenshots
 
-### Home Page
-<img src="screenshots/home.png" height=500px> 
+**Team list**
 
-### Tasks
-<img src="screenshots/tasks.png" height=500px>
+<img src="screenshots/teamlist.png" width="250">
 
-### Details
-<img src="screenshots/details.png" height=500px>
+**Players**
 
-### Editing
-<img src="screenshots/editing.png" height=500px>
+<img src="screenshots/players.png" width="250">
 
-### Settings
-<img src="screenshots/settings.png" height=500px>
+**Favorites and search**
+
+<img src="screenshots/search.png" width="250">
+
+## Reflection
+
+For this assignment, the application is built based on a local JSON file. I used players from the 2024 NFL season so I could practice displaying names, positions, and jersey numbers. A reusable `TeamCard` component shows the same layout for every team, and `FlatList` displays the cards in a scrollable list.
+
+React state is used to keep track of the search text, the team card, and the favorite team by IDs. Typing in the search box filters the list by name or city. Selecting `View Players` changes which team is open so the user can see its players without leaving the list.
+
+I used AsyncStorage to save the favorite IDs on the device. `JSON.stringify()` turns the IDs into a string before saving them. When the app reopens, `useEffect` reads that string and `JSON.parse()` turns it back into an array.
+
+If I wanted to use a live API, I would need an endpoint with team and player data. If I had that source, I would use `fetch()` to make a GET request, check the response, and store the results in state.
+
+## AI Assistance
+
+I used ChatGPT to come up with the JSON file (I'm not familiar with football), debug, and organize the README.

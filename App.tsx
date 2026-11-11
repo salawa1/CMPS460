@@ -1,387 +1,249 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Button, FlatList,
-  StyleSheet, Text, TextInput, View,
+  ActivityIndicator,
+  Alert,
+  Button,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import type {
-  NativeStackNavigationProp,
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import sampleData from './data/teams.json';
 
-type Task = {
+// JSON file
+type Player = {
+  name: string;
+  position: string;
+  number: number;
+};
+
+type Team = {
   id: string;
-  title: string;
-  completed: boolean;
+  name: string;
+  city: string;
+  conference: string;
+  players: Player[];
 };
 
-type RootStackParamList = {
-  Home: undefined;
-  Main: undefined;
-  TaskDetails: { taskId: string };
+// info passed to cards
+type TeamCardProps = {
+  team: Team;
+  expanded: boolean;
+  favorite: boolean;
+  saving: boolean;
+  onSelect: () => void;
+  onFavorite: () => void;
 };
 
-type TabParamList = {
-  Tasks: undefined;
-  Settings: undefined;
-};
+const teams: Team[] = sampleData.teams;
+const STORAGE_KEY = 'favoriteTeams'; // for AsyncStorage to retrieve favorite team IDs
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<TabParamList>();
-const STORAGE_KEY = 'organizer_tasks';
-
-// Reusable form component.
-type FormFieldProps = {
-  value: string;
-  onChange: (text: string) => void;
-};
-
-function FormField({ value, onChange }: FormFieldProps) {
+// FlatList to display every team
+function TeamCard({
+  team,
+  expanded,
+  favorite,
+  saving,
+  onSelect,
+  onFavorite,
+}: TeamCardProps) {
   return (
-    <TextInput
-      style={styles.input}
-      placeholder="Task title"
-      accessibilityLabel="Task title"
-      value={value}
-      onChangeText={onChange}
-    />
-  );
-}
+    <View style={styles.card}>
+      <Text style={styles.teamName}>{team.name}</Text>
+      <Text style={styles.text}>
+        {team.city} • {team.conference}
+      </Text>
 
-type HomeProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
-
-function HomeScreen({ navigation }: HomeProps) {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Personal Organizer</Text>
       <Button
-        title="View Tasks"
-        accessibilityLabel="Open tasks"
-        onPress={() => navigation.navigate('Main')}
+        title={expanded ? 'Hide Players' : 'View Players'}
+        accessibilityLabel={
+          `${expanded ? 'Hide' : 'View'} players for ${team.name}`
+        }
+        onPress={onSelect}
       />
+
+      {/* shows the players when card is expanded */}
+      {expanded && (
+        <View style={styles.players}>
+          <Text style={styles.playerHeading}>Players</Text>
+          {team.players.map(player => (
+            <Text key={player.number} style={styles.text}>
+              #{player.number} {player.name} — {player.position}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {/* error handling: disable the favorite button while change is happening */}
+      <View style={styles.favoriteButton}>
+        <Button
+          title={favorite ? 'Remove Favorite' : 'Add Favorite'}
+          accessibilityLabel={
+            `${favorite ? 'Unfavorite' : 'Favorite'} ${team.name}`
+          }
+          onPress={onFavorite}
+          disabled={saving}
+        />
+      </View>
     </View>
   );
 }
 
-type TasksProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Main'>;
-  tasks: Task[];
-  updateTasks: (tasks: Task[]) => void;
-  saving: boolean;
-  message: string;
-};
+export default function App() {
+  // selectedId stores open team's ID. null = no card open
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-function TasksScreen({
-  navigation, tasks, updateTasks, saving, message,
-}: TasksProps) {
-  const [title, setTitle] = useState('');
-  const [editingId, setEditingId] = useState('');
-  const [error, setError] = useState('');
+  useEffect(() => {
+    async function loadFavorites() {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
 
-  const clearForm = () => {
-    setTitle('');
-    setEditingId('');
-    setError('');
-  };
-
-  const saveTask = () => {
-    if (title.trim() === '') {
-      setError('Please enter a task title.');
-      return;
+        // AsyncStorage returns a string for JSON.parse to turn back into array
+        if (saved !== null) {
+          setFavorites(JSON.parse(saved));
+        }
+      } catch {
+        Alert.alert('Could not load favorites.');
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (editingId !== '') {
-      updateTasks(tasks.map(task =>
-        task.id === editingId ? { ...task, title: title.trim() } : task
-      ));
-    } else {
-      updateTasks([...tasks, {
-        id: `${Date.now()}-${Math.random()}`,
-        title: title.trim(),
-        completed: false,
-      }]);
+    loadFavorites();
+  }, []);
+
+  async function toggleFavorite(id: string) {
+    const nextFavorites = favorites.includes(id)
+      ? favorites.filter(favoriteId => favoriteId !== id)
+      : [...favorites, id];
+
+    setSaving(true);
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(nextFavorites),
+      );
+
+      // error handling: updates the buttons and list order after the save
+      setFavorites(nextFavorites);
+    } catch {
+      Alert.alert('Could not save favorites.');
+    } finally {
+      setSaving(false);
     }
+  }
 
-    clearForm();
-  };
+  // search ignores spaces and capitalization when finding info
+  const query = search.trim().toLowerCase();
+  const filteredTeams = teams.filter(team =>
+    team.name.toLowerCase().includes(query) ||
+    team.city.toLowerCase().includes(query)
+  );
 
-  const editTask = (task: Task) => {
-    setTitle(task.title);
-    setEditingId(task.id);
-    setError('');
-  };
+  const sortedTeams = [...filteredTeams].sort(
+    (a, b) => favorites.indexOf(b.id) - favorites.indexOf(a.id),
+  );
 
-  const toggleTask = (id: string) => {
-    updateTasks(tasks.map(task =>
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
-  };
-
-  const deleteTask = (id: string) => {
-    Alert.alert('Delete Task', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          updateTasks(tasks.filter(task => task.id !== id));
-          if (editingId === id) clearForm();
-        },
-      },
-    ]);
-  };
+  // error handling
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" />
+        <Text>Loading favorites...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>My Tasks</Text>
-      <FormField value={title} onChange={setTitle} />
+      <Text style={styles.heading}>NFL Teams & Players</Text>
 
-      {error !== '' && (
-        <Text style={styles.error} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
-
-      <Button
-        title={editingId ? 'Save Changes' : 'Add Task'}
-        accessibilityLabel={editingId ? 'Save changes' : 'Add task'}
-        onPress={saveTask}
-        disabled={saving}
+      <TextInput
+        style={styles.input}
+        placeholder="Search by name or city"
+        placeholderTextColor="#666"
+        accessibilityLabel="Search teams by name or city"
+        value={search}
+        onChangeText={setSearch}
       />
 
-      {editingId !== '' && (
-        <Button
-          title="Cancel Edit"
-          accessibilityLabel="Cancel editing"
-          onPress={clearForm}
-        />
-      )}
-
-      <Text style={styles.message} accessibilityLiveRegion="polite">
-        {message}
-      </Text>
-
       <FlatList
-        data={tasks}
+        data={sortedTeams}
         keyExtractor={item => item.id}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<Text>No tasks yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.text}>No teams match your search.</Text>
+        }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.taskTitle}>{item.title}</Text>
-            <Text>{item.completed ? 'Completed' : 'Not completed'}</Text>
-
-            <View style={styles.buttons}>
-              <Button
-                title="Details"
-                accessibilityLabel={`View ${item.title}`}
-                onPress={() =>
-                  navigation.navigate('TaskDetails', { taskId: item.id })
-                }
-              />
-              <Button
-                title="Edit"
-                accessibilityLabel={`Edit ${item.title}`}
-                onPress={() => editTask(item)}
-                disabled={saving}
-              />
-              <Button
-                title={item.completed ? 'Undo' : 'Complete'}
-                accessibilityLabel={
-                  `${item.completed ? 'Undo completion of' : 'Complete'} ${item.title}`
-                }
-                onPress={() => toggleTask(item.id)}
-                disabled={saving}
-              />
-              <Button
-                title="Delete"
-                color="red"
-                accessibilityLabel={`Delete ${item.title}`}
-                onPress={() => deleteTask(item.id)}
-                disabled={saving}
-              />
-            </View>
-          </View>
+          <TeamCard
+            team={item}
+            expanded={selectedId === item.id}
+            favorite={favorites.includes(item.id)}
+            saving={saving}
+            onSelect={() =>
+              setSelectedId(selectedId === item.id ? null : item.id)
+            }
+            onFavorite={() => toggleFavorite(item.id)}
+          />
         )}
       />
     </View>
   );
 }
 
-type DetailsProps =
-  NativeStackScreenProps<RootStackParamList, 'TaskDetails'> & {
-    tasks: Task[];
-  };
-
-function TaskDetailsScreen({ route, navigation, tasks }: DetailsProps) {
-  const task = tasks.find(item => item.id === route.params.taskId);
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>{task?.title || 'Task not found'}</Text>
-      {task && (
-        <>
-          <Text>Task ID: {task.id}</Text>
-          <Text>{task.completed ? 'Completed' : 'Not completed'}</Text>
-        </>
-      )}
-      <Button
-        title="Back to Tasks"
-        accessibilityLabel="Back to tasks"
-        onPress={() => navigation.goBack()}
-      />
-    </View>
-  );
-}
-
-function SettingsScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Settings</Text>
-      <Text>Tasks are saved automatically on this device.</Text>
-    </View>
-  );
-}
-
-export default function App() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved !== null) setTasks(JSON.parse(saved));
-        setLoaded(true);
-      } catch {
-        setLoadError('Unable to load tasks. Please reopen the app.');
-      }
-    };
-    loadTasks();
-  }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-
-    const saveTasks = async () => {
-      setSaving(true);
-      setMessage('Saving...');
-      try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-        setMessage('Tasks saved.');
-      } catch {
-        setMessage('Save failed. Changes are not saved.');
-      } finally {
-        setSaving(false);
-      }
-    };
-    saveTasks();
-  }, [tasks, loaded]);
-
-  if (loadError) {
-    return <View style={styles.loading}><Text>{loadError}</Text></View>;
-  }
-
-  if (!loaded) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator accessibilityLabel="Loading tasks" />
-        <Text>Loading tasks...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Main" options={{ title: 'Personal Organizer' }}>
-          {({ navigation }) => (
-            <Tab.Navigator screenOptions={{
-              headerShown: false,
-              tabBarIcon: () => null,
-              tabBarIconStyle: { display: 'none' },
-              tabBarLabelStyle: { fontSize: 16 },
-            }}>
-              <Tab.Screen
-                name="Tasks"
-                options={{ tabBarAccessibilityLabel: 'Tasks tab' }}
-              >
-                {() => (
-                  <TasksScreen
-                    navigation={navigation}
-                    tasks={tasks}
-                    updateTasks={setTasks}
-                    saving={saving}
-                    message={message}
-                  />
-                )}
-              </Tab.Screen>
-              <Tab.Screen
-                name="Settings"
-                component={SettingsScreen}
-                options={{ tabBarAccessibilityLabel: 'Settings tab' }}
-              />
-            </Tab.Navigator>
-          )}
-        </Stack.Screen>
-        <Stack.Screen name="TaskDetails" options={{ title: 'Task Details' }}>
-          {props => <TaskDetailsScreen {...props} tasks={tasks} />}
-        </Stack.Screen>
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
+// styling
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: 'white',
+    padding: 20,
+    paddingTop: 55,
+    backgroundColor: '#fff',
   },
   heading: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     marginBottom: 16,
   },
   input: {
     borderWidth: 1,
     borderColor: '#999',
+    color: '#222',
     padding: 12,
-    marginBottom: 12,
-  },
-  error: {
-    color: 'red',
-    marginBottom: 12,
-  },
-  message: {
-    marginVertical: 12,
+    marginBottom: 16,
   },
   card: {
-    backgroundColor: '#eee',
-    padding: 12,
+    backgroundColor: '#eaf1f8',
+    padding: 14,
     marginBottom: 12,
   },
-  taskTitle: {
+  teamName: {
     fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  text: {
+    fontSize: 16,
     marginBottom: 8,
   },
-  buttons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
+  players: {
+    marginTop: 12,
+  },
+  playerHeading: {
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  favoriteButton: {
+    marginTop: 8,
   },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
 });
