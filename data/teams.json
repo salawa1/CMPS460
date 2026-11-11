@@ -1,0 +1,12 @@
+{
+  "teams": [
+    { "id": "PIT", "name": "Pittsburgh Steelers", "city": "Pittsburgh", "conference": "AFC" },
+    { "id": "PHI", "name": "Philadelphia Eagles", "city": "Philadelphia", "conference": "NFC" },
+    { "id": "BUF", "name": "Buffalo Bills", "city": "Buffalo", "conference": "AFC" },
+    { "id": "BAL", "name": "Baltimore Ravens", "city": "Baltimore", "conference": "AFC" },
+    { "id": "KC", "name": "Kansas City Chiefs", "city": "Kansas City", "conference": "AFC" },
+    { "id": "DAL", "name": "Dallas Cowboys", "city": "Dallas", "conference": "NFC" },
+    { "id": "GB", "name": "Green Bay Packers", "city": "Green Bay", "conference": "NFC" },
+    { "id": "CHI", "name": "Chicago Bears", "city": "Chicago", "conference": "NFC" }
+  ]
+}
