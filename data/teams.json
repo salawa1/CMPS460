@@ -1,0 +1,104 @@
+{
+  "teams": [
+    {
+      "id": "PIT",
+      "name": "Pittsburgh Steelers",
+      "city": "Pittsburgh",
+      "conference": "AFC",
+      "players": [
+        { "name": "T.J. Watt", "position": "LB", "number": 90 },
+        { "name": "Minkah Fitzpatrick", "position": "S", "number": 39 }
+      ]
+    },
+    {
+      "id": "PHI",
+      "name": "Philadelphia Eagles",
+      "city": "Philadelphia",
+      "conference": "NFC",
+      "players": [
+        { "name": "Jalen Hurts", "position": "QB", "number": 1 },
+        { "name": "Saquon Barkley", "position": "RB", "number": 26 }
+      ]
+    },
+    {
+      "id": "BUF",
+      "name": "Buffalo Bills",
+      "city": "Buffalo",
+      "conference": "AFC",
+      "players": [
+        { "name": "Josh Allen", "position": "QB", "number": 17 },
+        { "name": "James Cook", "position": "RB", "number": 4 }
+      ]
+    },
+    {
+      "id": "BAL",
+      "name": "Baltimore Ravens",
+      "city": "Baltimore",
+      "conference": "AFC",
+      "players": [
+        { "name": "Lamar Jackson", "position": "QB", "number": 8 },
+        { "name": "Derrick Henry", "position": "RB", "number": 22 }
+      ]
+    },
+    {
+      "id": "KC",
+      "name": "Kansas City Chiefs",
+      "city": "Kansas City",
+      "conference": "AFC",
+      "players": [
+        { "name": "Patrick Mahomes", "position": "QB", "number": 15 },
+        { "name": "Travis Kelce", "position": "TE", "number": 87 }
+      ]
+    },
+    {
+      "id": "DAL",
+      "name": "Dallas Cowboys",
+      "city": "Dallas",
+      "conference": "NFC",
+      "players": [
+        { "name": "Dak Prescott", "position": "QB", "number": 4 },
+        { "name": "CeeDee Lamb", "position": "WR", "number": 88 }
+      ]
+    },
+    {
+      "id": "GB",
+      "name": "Green Bay Packers",
+      "city": "Green Bay",
+      "conference": "NFC",
+      "players": [
+        { "name": "Jordan Love", "position": "QB", "number": 10 },
+        { "name": "Josh Jacobs", "position": "RB", "number": 8 }
+      ]
+    },
+    {
+      "id": "CHI",
+      "name": "Chicago Bears",
+      "city": "Chicago",
+      "conference": "NFC",
+      "players": [
+        { "name": "Caleb Williams", "position": "QB", "number": 18 },
+        { "name": "DJ Moore", "position": "WR", "number": 2 }
+      ]
+    },
+    {
+      "id": "DET",
+      "name": "Detroit Lions",
+      "city": "Detroit",
+      "conference": "NFC",
+      "players": [
+        { "name": "Jared Goff", "position": "QB", "number": 16 },
+        { "name": "Amon-Ra St. Brown", "position": "WR", "number": 14 }
+      ]
+    },
+    {
+      "id": "MIA",
+      "name": "Miami Dolphins",
+      "city": "Miami",
+      "conference": "AFC",
+      "players": [
+        { "name": "Tua Tagovailoa", "position": "QB", "number": 1 },
+        { "name": "Tyreek Hill", "position": "WR", "number": 10 }
+      ]
+    }
+  ]
+}
