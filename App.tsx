@@ -1,245 +1,320 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Button,
-  FlatList,
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import sampleData from './data/teams.json';
 
-// JSON file
-type Player = {
-  name: string;
-  position: string;
-  number: number;
+type Coordinates = {
+  latitude: number;
+  longitude: number;
 };
 
-type Team = {
+type Entry = {
   id: string;
-  name: string;
-  city: string;
-  conference: string;
-  players: Player[];
+  photoUri: string;
+  note: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
 };
 
-// info passed to cards
-type TeamCardProps = {
-  team: Team;
-  expanded: boolean;
-  favorite: boolean;
-  saving: boolean;
-  onSelect: () => void;
-  onFavorite: () => void;
-};
-
-const teams: Team[] = sampleData.teams;
-const STORAGE_KEY = 'favoriteTeams'; // for AsyncStorage to retrieve favorite team IDs
-
-// FlatList to display every team
-function TeamCard({
-  team,
-  expanded,
-  favorite,
-  saving,
-  onSelect,
-  onFavorite,
-}: TeamCardProps) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.teamName}>{team.name}</Text>
-      <Text style={styles.text}>
-        {team.city} • {team.conference}
-      </Text>
-
-      <Button
-        title={expanded ? 'Hide Players' : 'View Players'}
-        accessibilityLabel={
-          `${expanded ? 'Hide' : 'View'} players for ${team.name}`
-        }
-        onPress={onSelect}
-      />
-
-      {/* shows the players when card is expanded */}
-      {expanded && (
-        <View style={styles.players}>
-          <Text style={styles.playerHeading}>Players</Text>
-          {team.players.map(player => (
-            <Text key={player.number} style={styles.text}>
-              #{player.number} {player.name} — {player.position}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {/* error handling: disable the favorite button while change is happening */}
-      <View style={styles.favoriteButton}>
-        <Button
-          title={favorite ? 'Remove Favorite' : 'Add Favorite'}
-          accessibilityLabel={
-            `${favorite ? 'Unfavorite' : 'Favorite'} ${team.name}`
-          }
-          onPress={onFavorite}
-          disabled={saving}
-        />
-      </View>
-    </View>
-  );
-}
+const STORAGE_KEY = '@location_journal_entries';
 
 export default function App() {
-  // selectedId stores open team's ID. null = no card open
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [photoUri, setPhotoUri] = useState('');
+  const [coords, setCoords] = useState<Coordinates | null>(null);
+  const [note, setNote] = useState('');
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    async function loadFavorites() {
+    async function loadEntries() {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
 
-        // AsyncStorage returns a string for JSON.parse to turn back into array
         if (saved !== null) {
-          setFavorites(JSON.parse(saved));
+          setEntries(JSON.parse(saved));
         }
+
+        setLoaded(true);
       } catch {
-        Alert.alert('Could not load favorites.');
+        setMessage(
+          'Could not load the journal. Reopen the app before saving.',
+        );
       } finally {
         setLoading(false);
       }
     }
 
-    loadFavorites();
+    loadEntries();
   }, []);
 
-  async function toggleFavorite(id: string) {
-    const nextFavorites = favorites.includes(id)
-      ? favorites.filter(favoriteId => favoriteId !== id)
-      : [...favorites, id];
+  async function takePhoto() {
+    setBusy(true);
+    setMessage('');
 
-    setSaving(true);
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(nextFavorites),
-      );
+      const permission =
+        await ImagePicker.requestCameraPermissionsAsync();
 
-      // error handling: updates the buttons and list order after the save
-      setFavorites(nextFavorites);
-    } catch {
-      Alert.alert('Could not save favorites.');
+      if (!permission.granted) {
+        setMessage(
+          'Camera permission denied. Enable access in device settings.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        cameraType: ImagePicker.CameraType.front,
+        allowsEditing: false,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setPhotoUri(result.assets[0].uri);
+        setMessage('Photo captured.');
+      }
+    } catch (error) {
+      console.log('Camera error:', error);
+      setMessage('Could not take a photo. Please try again.');
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  // search ignores spaces and capitalization when finding info
-  const query = search.trim().toLowerCase();
-  const filteredTeams = teams.filter(team =>
-    team.name.toLowerCase().includes(query) ||
-    team.city.toLowerCase().includes(query)
-  );
+  async function getLocation() {
+    setBusy(true);
+    setMessage('Getting location...');
+    setCoords(null);
 
-  const sortedTeams = [...filteredTeams].sort(
-    (a, b) => favorites.indexOf(b.id) - favorites.indexOf(a.id),
-  );
+    try {
+      const permission =
+        await Location.requestForegroundPermissionsAsync();
 
-  // error handling
+      if (permission.status !== 'granted') {
+        setMessage(
+          'Location permission denied. Enable access in device settings.',
+        );
+        return;
+      }
+
+      const result = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        mayShowUserSettingsDialog: false,
+      });
+
+      setCoords({
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+      });
+
+      setMessage('Location retrieved.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not get your location.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEntry() {
+    if (!photoUri || !coords || note.trim() === '') {
+      setMessage('Take a photo, get your location, and enter a note.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('Saving entry...');
+
+    try {
+      if (!FileSystem.documentDirectory) {
+        throw new Error('Photo storage is unavailable.');
+      }
+
+      const id = Date.now().toString();
+      const destination =
+        FileSystem.documentDirectory + 'journal-' + id + '.jpg';
+
+      await FileSystem.copyAsync({
+        from: photoUri,
+        to: destination,
+      });
+
+      const entry: Entry = {
+        id,
+        photoUri: destination,
+        note: note.trim(),
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        timestamp: new Date().toISOString(),
+      };
+
+      const updatedEntries = [entry, ...entries];
+
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(updatedEntries),
+      );
+
+      setEntries(updatedEntries);
+      setPhotoUri('');
+      setCoords(null);
+      setNote('');
+      setMessage('Journal entry saved.');
+    } catch {
+      setMessage('Could not save the entry. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" />
-        <Text>Loading favorites...</Text>
+        <Text>Loading journal...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>NFL Teams & Players</Text>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.heading}>My Location Journal</Text>
+
+      <Button
+        title={photoUri ? 'Retake Photo' : 'Open Camera'}
+        onPress={takePhoto}
+        disabled={busy}
+      />
+
+      {photoUri !== '' && (
+        <Image
+          source={{ uri: photoUri }}
+          style={styles.photo}
+          resizeMode="contain"
+        />
+      )}
+
+      <View style={styles.section}>
+        <Button
+          title="Get Current Location"
+          onPress={getLocation}
+          disabled={busy}
+        />
+      </View>
+
+      {coords && (
+        <View>
+          <Text>Latitude: {coords.latitude.toFixed(5)}</Text>
+          <Text>Longitude: {coords.longitude.toFixed(5)}</Text>
+        </View>
+      )}
 
       <TextInput
         style={styles.input}
-        placeholder="Search by name or city"
+        placeholder="Write a journal note"
         placeholderTextColor="#666"
-        accessibilityLabel="Search teams by name or city"
-        value={search}
-        onChangeText={setSearch}
+        value={note}
+        onChangeText={setNote}
+        multiline
+        editable={!busy}
       />
 
-      <FlatList
-        data={sortedTeams}
-        keyExtractor={item => item.id}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          <Text style={styles.text}>No teams match your search.</Text>
-        }
-        renderItem={({ item }) => (
-          <TeamCard
-            team={item}
-            expanded={selectedId === item.id}
-            favorite={favorites.includes(item.id)}
-            saving={saving}
-            onSelect={() =>
-              setSelectedId(selectedId === item.id ? null : item.id)
-            }
-            onFavorite={() => toggleFavorite(item.id)}
-          />
-        )}
+      <Button
+        title="Save Entry"
+        onPress={saveEntry}
+        disabled={busy || !loaded}
       />
-    </View>
+
+      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.subheading}>Saved Entries</Text>
+
+      {entries.length === 0 && <Text>No entries yet.</Text>}
+
+      {entries.map(entry => (
+        <View key={entry.id} style={styles.entry}>
+          <Image
+            source={{ uri: entry.photoUri }}
+            style={styles.photo}
+            resizeMode="contain"
+          />
+
+          <Text style={styles.note}>{entry.note}</Text>
+          <Text>{new Date(entry.timestamp).toLocaleString()}</Text>
+          <Text>Latitude: {entry.latitude.toFixed(5)}</Text>
+          <Text>Longitude: {entry.longitude.toFixed(5)}</Text>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 
-// styling
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 55,
-    backgroundColor: '#fff',
+    flexGrow: 1,
+    padding: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    backgroundColor: 'white',
   },
   heading: {
     fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  subheading: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  photo: {
+    width: 180,
+    height: 180,
+    marginVertical: 12,
+  },
+  section: {
+    marginVertical: 12,
   },
   input: {
     borderWidth: 1,
     borderColor: '#999',
+    padding: 12,
+    marginVertical: 16,
+    minHeight: 70,
+    textAlignVertical: 'top',
     color: '#222',
+  },
+  message: {
+    marginVertical: 16,
+  },
+  entry: {
     padding: 12,
     marginBottom: 16,
+    backgroundColor: '#eee',
   },
-  card: {
-    backgroundColor: '#eaf1f8',
-    padding: 14,
-    marginBottom: 12,
-  },
-  teamName: {
+  note: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  text: {
-    fontSize: 16,
     marginBottom: 8,
-  },
-  players: {
-    marginTop: 12,
-  },
-  playerHeading: {
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  favoriteButton: {
-    marginTop: 8,
   },
   loading: {
     flex: 1,
