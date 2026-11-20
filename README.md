@@ -1,49 +1,56 @@
-# Module 9 Assignment NFL Teams & Players
+# Module 10 Assignment - My Location Journal
 
 **Sam Alawadhi** 
 
 ## App Description
 
-A React Native app for browsing 10 NFL teams, viewing players, searching by team name or city, and saving favorite teams.
+A React Native app that allows users to capture a photo, attach their current coordinates, write a note, and save a timestamped journal entry.
+Saved entries appear in a scrollable list and remain present after restarting.
 
 ## Installation and Run Instructions
+
+Install these dependencies:
+
+```bash
+npx expo install expo-camera expo-location expo-file-system @react-native-async-storage/async-storage
+```
+To run the application:
 
 1. Install Node.js and start an Android emulator in Android Studio.
 2. Open the project folder in VS Code and run:
 
    ```bash
    npm install
-   npm run android
+   npx expo start
    ```
-
-## Data Source
-
-The app uses a local JSON file located in `data/teams.json`. It includes real NFL team names, cities, and conferences. Each team has two players from the 2024 season with a name, position, and jersey number.
+3. Press `a` to open the project on Android.
 
 ## Screenshots
 
-**Team list**
+**Home**
 
-<img src="screenshots/teamlist.png" width="250">
+<img src="screenshots/home.png" width="250">
 
-**Players**
+**Location Permissions**
 
-<img src="screenshots/players.png" width="250">
+<img src="screenshots/location.png" width="250">
 
-**Favorites and search**
+**Camera Permissions**
 
-<img src="screenshots/search.png" width="250">
+<img src="screenshots/camera.png" width="250">
+
+**Editing the Journal**
+
+<img src="screenshots/editing.png" width="250">
+
+**Journal List**
+
+<img src="screenshots/journal.png" width="250">
 
 ## Reflection
 
-For this assignment, the application is built based on a local JSON file. I used players from the 2024 NFL season so I could practice displaying names, positions, and jersey numbers. A reusable `TeamCard` component shows the same layout for every team, and `FlatList` displays the cards in a scrollable list.
+One challenge I faced during this assignment was getting photos to actually display in the application. At first, the camera would show a simulated scene created by the emulator for testing reasons. However, whenever I took the photo, it would return a black image with a time stamp on the photo. It took a while to figure out how to fix this issue, but I changed the camera path in the Android Emulator to be the webcam of my computer. After a change to `launchCameraAsync`, the app now opens a camera window instead of an in-app viewfinder, which seems to have fixed it.
 
-React state is used to keep track of the search text, the team card, and the favorite team by IDs. Typing in the search box filters the list by name or city. Selecting `View Players` changes which team is open so the user can see its players without leaving the list.
+As for permissions, the app requests camera permission when pressing the "Open Camera" button and location permission when pressing the "Get Current Location" button. If permission is denied, it displays an error message instead of continuing.
 
-I used AsyncStorage to save the favorite IDs on the device. `JSON.stringify()` turns the IDs into a string before saving them. When the app reopens, `useEffect` reads that string and `JSON.parse()` turns it back into an array.
-
-If I wanted to use a live API, I would need an endpoint with team and player data. If I had that source, I would use `fetch()` to make a GET request, check the response, and store the results in state.
-
-## AI Assistance
-
-I used ChatGPT to come up with the JSON file (I'm not familiar with football), debug, and organize the README.
+For privacy, the app does not upload entries anywhere or collect location details in the background. Even though entries aren't being uploaded to the cloud, local storage is not automatically encrypted. I used pre-set coordinates that point to a general area of Point Park's campus and nonsensitive images during testing.
